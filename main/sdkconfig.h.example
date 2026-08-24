@@ -1,0 +1,46 @@
+#pragma once
+
+/* ============================================================
+ * main/sdkconfig.h.example
+ *
+ * オリジナルのESP32版はESP-IDFの `idf.py menuconfig` (Kconfig.projbuild) で
+ * これらの値をビルド時に設定していた。今回アップロードいただいたファイル
+ * 一式には Kconfig.projbuild / sdkconfig の実体 (実際の認証情報) が
+ * 含まれていなかったため、Linux移植版では同じマクロ名をこのヘッダに
+ * プレーンな #define として用意し、ユーザーが直接編集する方式にした。
+ *
+ * 使い方:
+ *   cp main/sdkconfig.h.example main/sdkconfig.h
+ *   その後 main/sdkconfig.h を編集して実際の値を入れる。
+ *   (main/sdkconfig.h は .gitignore 済みなので、誤ってcommit/pushされない)
+ * ============================================================ */
+
+/* ---- Wi-Fi (Linux版では実質未使用。wifi_manager.cはOSのネットワークを
+ *       そのまま使うため、この値は参照されない。互換性のため残してある) ---- */
+#define CONFIG_ALEXA_WIFI_SSID         "your-wifi-ssid"
+#define CONFIG_ALEXA_WIFI_PASSWORD     "your-wifi-password"
+
+/* ---- MQTT (EMQX/HiveMQ Cloud等) ---- */
+#define CONFIG_ALEXA_EMQX_HOST         "your-broker-host.example.com"
+#define CONFIG_ALEXA_EMQX_PORT         8883
+#define CONFIG_ALEXA_EMQX_USERNAME     "your-mqtt-username"
+#define CONFIG_ALEXA_EMQX_PASSWORD     "your-mqtt-password"
+#define CONFIG_ALEXA_MQTT_CLIENT_ID    "ESP32-1-x86_64-test"
+
+/* CA証明書PEMファイルへのパス (元のemqx_ca.pemに相当)。
+ * 実行ファイルからの相対パス、または絶対パスを指定する。 */
+#define CONFIG_ALEXA_CA_CERT_PATH      "certs/emqx_ca.pem"
+
+/* ---- Tuya スイッチ (ローカルLAN直結) ---- */
+#define CONFIG_ALEXA_TUYA_IP           "192.168.1.50"
+#define CONFIG_ALEXA_TUYA_PORT         6668
+#define CONFIG_ALEXA_TUYA_DEVICE_ID    "your-tuya-device-id"
+#define CONFIG_ALEXA_TUYA_LOCAL_KEY    "your-tuya-local-key"
+#define CONFIG_ALEXA_TUYA_TIMEOUT_MS   3000
+
+/* ---- LampSmart (BLE電球) ---- */
+#define CONFIG_ALEXA_LAMPSMART_UUID    "00000000-9317-5b6d-0000-12c000000000"
+
+/* ---- x86_64移植版で追加した設定 ---- */
+/* alert設定・switch有効フラグの永続化先ファイル (元のNVSに相当) */
+#define CONFIG_ALEXA_SETTINGS_PATH     "data/settings.dat"

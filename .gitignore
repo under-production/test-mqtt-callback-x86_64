@@ -1,0 +1,13 @@
+# ビルド成果物
+/build/
+*.o
+*.a
+
+# ユーザー固有の秘密情報(認証情報等) — main/sdkconfig.h.example をコピーして作成する
+main/sdkconfig.h
+
+# 実行時に生成されるローカルデータ
+/data/*.dat
+/certs/*.pem
+!/certs/.gitkeep
+!/data/.gitkeep

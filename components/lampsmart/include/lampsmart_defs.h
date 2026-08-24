@@ -1,0 +1,6 @@
+#pragma once
+
+#define LAMPSMART_ADV_LEN 31
+#define LAMPSMART_F008_RAND16_DEFAULT 0x2B53u
+
+

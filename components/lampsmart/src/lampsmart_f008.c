@@ -1,0 +1,74 @@
+#include "lampsmart_f008.h"
+
+#include <string.h>
+
+#include "aes/esp_aes.h"
+#include "lampsmart_crc.h"
+
+static const uint8_t XOR_TABLE[128] = {
+    0xB7,0xFD,0x93,0x26,0x36,0x3F,0xF7,0xCC,0x34,0xA5,0xE5,0xF1,0x71,0xD8,0x31,0x15,
+    0x04,0xC7,0x23,0xC3,0x18,0x96,0x05,0x9A,0x07,0x12,0x80,0xE2,0xEB,0x27,0xB2,0x75,
+    0xD0,0xEF,0xAA,0xFB,0x43,0x4D,0x33,0x85,0x45,0xF9,0x02,0x7F,0x50,0x3C,0x9F,0xA8,
+    0x51,0xA3,0x40,0x8F,0x92,0x9D,0x38,0xF5,0xBC,0xB6,0xDA,0x21,0x10,0xFF,0xF3,0xD2,
+    0xE0,0x32,0x3A,0x0A,0x49,0x06,0x24,0x5C,0xC2,0xD3,0xAC,0x62,0x91,0x95,0xE4,0x79,
+    0xE7,0xC8,0x37,0x6D,0x8D,0xD5,0x4E,0xA9,0x6C,0x56,0xF4,0xEA,0x65,0x7A,0xAE,0x08,
+    0xE1,0xF8,0x98,0x11,0x69,0xD9,0x8E,0x94,0x9B,0x1E,0x87,0xE9,0xCE,0x55,0x28,0xDF,
+    0x8C,0xA1,0x89,0x0D,0xBF,0xE6,0x42,0x68,0x41,0x99,0x2D,0x0F,0xB0,0x54,0xBB,0x16,
+};
+
+static const uint8_t AES_FIXED_KEY_TAIL[13] = {
+    0x0D,0xBF,0xE6,0x42,0x68,0x41,0x99,0x2D,0x0F,0xB0,0x54,0xBB,0x16
+};
+
+static void apply_whitening(uint8_t packet[LAMPSMART_ADV_LEN])
+{
+    uint8_t rand_lo = packet[27];
+    uint8_t table = packet[8] & 0x03u;
+    for (int i = 9; i <= 26; ++i) {
+        uint8_t index = (uint8_t)((rand_lo + (uint8_t)i) & 0x1Fu);
+        packet[i] ^= (uint8_t)(rand_lo ^ XOR_TABLE[(table * 32u) + index]);
+    }
+}
+
+esp_err_t lampsmart_f008_build_adv31(const lampsmart_profile_t *profile,
+                                     uint8_t key2, uint16_t command,
+                                     const uint8_t payload4[4], uint16_t rand16,
+                                     uint8_t out31[LAMPSMART_ADV_LEN])
+{
+    if (!profile || !payload4 || !out31) return ESP_ERR_INVALID_ARG;
+    uint8_t packet[LAMPSMART_ADV_LEN] = {0};
+    packet[0] = 0x02; packet[1] = 0x01; packet[2] = 0x02;
+    packet[3] = 0x1B; packet[4] = 0x03; packet[5] = 0xF0;
+    packet[6] = 0x08; packet[7] = 0x30; packet[8] = 0x82;
+    packet[10] = key2; packet[12] = 0x01;
+    memcpy(&packet[13], profile->f008_target4, 4);
+    packet[18] = (uint8_t)(command & 0xFFu);
+    packet[19] = (uint8_t)((command >> 8) & 0xFFu);
+    memcpy(&packet[20], payload4, 4);
+    packet[27] = (uint8_t)(rand16 & 0xFFu);
+    packet[28] = (uint8_t)((rand16 >> 8) & 0xFFu);
+
+    uint8_t key[16];
+    key[0] = packet[27]; key[1] = packet[28]; key[2] = packet[10];
+    memcpy(&key[3], AES_FIXED_KEY_TAIL, sizeof(AES_FIXED_KEY_TAIL));
+    uint8_t encrypted[16] = {0};
+    esp_aes_context aes;
+    esp_aes_init(&aes);
+    int rc = esp_aes_setkey(&aes, key, 128);
+    if (rc == 0) rc = esp_aes_crypt_ecb(&aes, ESP_AES_ENCRYPT, &packet[8], encrypted);
+    esp_aes_free(&aes);
+    if (rc != 0) return ESP_FAIL;
+    uint16_t signature = (uint16_t)encrypted[0] | ((uint16_t)encrypted[1] << 8);
+    if (signature == 0) signature = 0xFFFFu;
+    packet[24] = (uint8_t)(signature & 0xFFu);
+    packet[25] = (uint8_t)((signature >> 8) & 0xFFu);
+    apply_whitening(packet);
+    uint16_t crc = lampsmart_crc16_ccitt_range(packet, 7, 22,
+                                                (uint16_t)~rand16);
+    packet[29] = (uint8_t)(crc & 0xFFu);
+    packet[30] = (uint8_t)((crc >> 8) & 0xFFu);
+    memcpy(out31, packet, LAMPSMART_ADV_LEN);
+    return ESP_OK;
+}
+
+

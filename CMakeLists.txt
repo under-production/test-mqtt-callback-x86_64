@@ -7,6 +7,7 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
 
+include(FetchContent)
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
 
@@ -29,38 +30,49 @@ pkg_check_modules(CJSON REQUIRED libcjson)
 pkg_check_modules(BLUEZ bluez)
 
 # ---------------------------------------------------------------------------
-# wolfSSL / wolfMQTT を GitHub から取得してソースツリーとしてビルドする。
-# オリジナル(ESP32)版と同じライブラリをそのまま使うことで、TLS/MQTTの
-# 挙動を可能な限り忠実に再現する。
+# wolfSSL / wolfMQTT
 # ---------------------------------------------------------------------------
+# ★★★ wolfSSLはFetchContentで取得（変更なし） ★★★
 set(WOLFSSL_USER_SETTINGS yes CACHE STRING "" FORCE)
 set(WOLFSSL_EXAMPLES no CACHE STRING "" FORCE)
 set(WOLFSSL_CRYPT_TESTS no CACHE STRING "" FORCE)
 set(WOLFSSL_BENCHMARK no CACHE STRING "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
-set(WITH_WOLFSSL_TREE
-    ${CMAKE_SOURCE_DIR}/third_party/wolfssl
-    CACHE PATH "" FORCE)
+# wolfSSLはFetchContentで取得（動作していた方法と同じ）
+FetchContent_Declare(
+    wolfssl
+    GIT_REPOSITORY https://github.com/wolfSSL/wolfssl.git
+    GIT_TAG        v5.7.6-stable
+    GIT_SHALLOW    TRUE
+)
+FetchContent_GetProperties(wolfssl)
+if(NOT wolfssl_POPULATED)
+    FetchContent_Populate(wolfssl)
+endif()
 
-set(WOLFMQTT_EXAMPLES no CACHE STRING "" FORCE)
+# ★★★ ここが変更点: wolfMQTTをプロジェクト内のソースからビルド ★★★
+# wolfMQTTのビルド設定
 set(WOLFMQTT_TLS yes CACHE STRING "" FORCE)
+set(WOLFMQTT_EXAMPLES no CACHE STRING "" FORCE)
+set(WITH_WOLFSSL_TREE ${wolfssl_SOURCE_DIR} CACHE PATH "" FORCE)
 
-add_subdirectory(
-    ${CMAKE_SOURCE_DIR}/third_party/wolfmqtt
-    ${CMAKE_BINARY_DIR}/wolfmqtt
-)
+# プロジェクト内のwolfMQTTソースを使用
+set(WOLFMQTT_ROOT ${CMAKE_SOURCE_DIR}/third_party/wolfmqtt)
 
-target_include_directories(wolfmqtt PRIVATE
-    ${CMAKE_SOURCE_DIR}/main
-)
+# プロジェクト内のwolfMQTTをビルド
+add_subdirectory(${WOLFMQTT_ROOT} ${CMAKE_BINARY_DIR}/wolfmqtt)
 
-target_compile_definitions(wolfmqtt PRIVATE
+# wolfMQTTにmain/のuser_settings.hが見えるようにする
+target_include_directories(wolfmqtt PRIVATE ${CMAKE_SOURCE_DIR}/main)
+# wolfSSLにもmain/のuser_settings.hが見えるようにする
+target_include_directories(wolfssl PRIVATE ${CMAKE_SOURCE_DIR}/main)
+
+# wolfMQTTにコンパイル定義を追加（デバッグ用）
+target_compile_definitions(wolfmqtt PRIVATE 
     WOLFSSL_USER_SETTINGS
-)
-
-target_include_directories(wolfssl PRIVATE
-    ${CMAKE_SOURCE_DIR}/main
+    DEBUG_WOLFSSL
+    WOLFSSL_DEBUG
 )
 
 # ---------------------------------------------------------------------------
@@ -139,10 +151,16 @@ add_executable(alexa_esp32_x86_64_test
     main/system_loop.c
     main/wifi_manager.c
 )
+
 target_include_directories(alexa_esp32_x86_64_test PRIVATE
     main
     ${CJSON_INCLUDE_DIRS}
+    ${WOLFMQTT_ROOT}/src
+    ${WOLFMQTT_ROOT}/wolfmqtt
+    ${wolfssl_SOURCE_DIR}/src
+    ${wolfssl_SOURCE_DIR}/wolfssl
 )
+
 target_link_libraries(alexa_esp32_x86_64_test PRIVATE
     esp_compat
     aircon_ir
@@ -155,10 +173,17 @@ target_link_libraries(alexa_esp32_x86_64_test PRIVATE
     Threads::Threads
     m
 )
-target_compile_definitions(alexa_esp32_x86_64_test PRIVATE WOLFSSL_USER_SETTINGS)
+
+target_compile_definitions(alexa_esp32_x86_64_test PRIVATE 
+    WOLFSSL_USER_SETTINGS
+    DEBUG_WOLFSSL
+    WOLFSSL_DEBUG
+)
 
 message(STATUS "======================================================")
 message(STATUS " alexa-esp32 x86_64 test build (MQTT検証用移植版)")
+message(STATUS "  wolfSSL: ${wolfssl_SOURCE_DIR}")
+message(STATUS "  wolfMQTT: ${WOLFMQTT_ROOT} (プロジェクト内ソース)")
 message(STATUS "  BlueZ (実BLEアドバタイズ): ${BLUEZ_FOUND}")
 message(STATUS "  ビルド後は main/sdkconfig.h を編集してから実行してください")
 message(STATUS "======================================================")

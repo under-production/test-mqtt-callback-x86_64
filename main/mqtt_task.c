@@ -265,6 +265,7 @@ static int run_session(bool *connected_once)
             goto exit;
         }
         if (now_ms() - last_ping >= (APP_MQTT_KEEPALIVE_SEC * 1000LL) / 2) {
+            ESP_LOGI(TAG, "PING BEGIN time=%lld", now_ms());
             ret = MqttClient_Ping(&s_client);
             if (ret != MQTT_CODE_SUCCESS) {
                 ESP_LOGE(TAG, "MQTT PING failed: %d", ret);

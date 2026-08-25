@@ -47,4 +47,3 @@ void app_reset_publish_queue(void)
 {
     if (s_publish_queue) xQueueReset(s_publish_queue);
 }
-

@@ -7,7 +7,6 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
 
-include(FetchContent)
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
 
@@ -40,33 +39,29 @@ set(WOLFSSL_CRYPT_TESTS no CACHE STRING "" FORCE)
 set(WOLFSSL_BENCHMARK no CACHE STRING "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
-FetchContent_Declare(
-    wolfssl
-    GIT_REPOSITORY https://github.com/wolfSSL/wolfssl.git
-    GIT_TAG        v5.7.6-stable
-    GIT_SHALLOW    TRUE
-)
-# ここでは取得のみ行う(add_subdirectoryはしない)。
-# wolfMQTTのCMake側がWITH_WOLFSSL_TREE経由でadd_subdirectoryするため、
-# 二重にターゲットを定義しないようFetchContent_Populateのみ使う。
-FetchContent_GetProperties(wolfssl)
-if(NOT wolfssl_POPULATED)
-    FetchContent_Populate(wolfssl)
-endif()
+set(WITH_WOLFSSL_TREE
+    ${CMAKE_SOURCE_DIR}/third_party/wolfssl
+    CACHE PATH "" FORCE)
 
-FetchContent_Declare(
-    wolfmqtt
-    GIT_REPOSITORY https://github.com/wolfSSL/wolfMQTT.git
-    GIT_TAG        master
-    GIT_SHALLOW    TRUE
-)
-set(WITH_WOLFSSL_TREE ${wolfssl_SOURCE_DIR} CACHE PATH "" FORCE)
 set(WOLFMQTT_EXAMPLES no CACHE STRING "" FORCE)
 set(WOLFMQTT_TLS yes CACHE STRING "" FORCE)
-FetchContent_MakeAvailable(wolfmqtt)
-target_include_directories(wolfmqtt PRIVATE ${CMAKE_SOURCE_DIR}/main)
-target_compile_definitions(wolfmqtt PRIVATE WOLFSSL_USER_SETTINGS)
-target_include_directories(wolfssl PRIVATE ${CMAKE_SOURCE_DIR}/main)
+
+add_subdirectory(
+    ${CMAKE_SOURCE_DIR}/third_party/wolfmqtt
+    ${CMAKE_BINARY_DIR}/wolfmqtt
+)
+
+target_include_directories(wolfmqtt PRIVATE
+    ${CMAKE_SOURCE_DIR}/main
+)
+
+target_compile_definitions(wolfmqtt PRIVATE
+    WOLFSSL_USER_SETTINGS
+)
+
+target_include_directories(wolfssl PRIVATE
+    ${CMAKE_SOURCE_DIR}/main
+)
 
 # ---------------------------------------------------------------------------
 # 互換シム層 (ESP-IDF/FreeRTOS API -> pthread/POSIX)

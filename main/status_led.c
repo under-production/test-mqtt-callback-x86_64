@@ -80,6 +80,7 @@ void status_led_tick(EventBits_t bits)
         condition = LED_CONDITION_WIFI;
         half_period_ticks = 1;
     } else if (bits & MQTT_ERROR_BIT) {
+        //ESP_LOGI(TAG, "status bits -> %b", bits);
         condition = LED_CONDITION_MQTT;
         half_period_ticks = 3;
     } else if (bits & THERMOMETER_ERROR_BIT) {

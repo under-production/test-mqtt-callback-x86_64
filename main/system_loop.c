@@ -30,8 +30,8 @@ static void system_loop_main(void *argument)
         (int64_t)APP_TEMPERATURE_INTERVAL_MS * 1000LL;
     while (true) {
         wifi_manager_process();
-        EventBits_t bits = xEventGroupGetBits(app_event_group());
-        status_led_tick(bits);
+        //EventBits_t bits = xEventGroupGetBits(app_event_group());
+        //status_led_tick(bits);
         int64_t now = esp_timer_get_time();
         if (now >= next_temperature_us) {
             enqueue_temperature_job();

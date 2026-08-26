@@ -18,7 +18,11 @@
 #define ENABLE_MQTT_TLS
 #endif
 
-#define WOLFMQTT_NO_STDIO
+/* WOLFMQTT_NO_STDIO は削除。
+ * これが定義されていると mqtt_types.h 内で PRINTF が空マクロになり、
+ * wolfMQTT内のトレースログ([WMQTT] ...)を含むすべてのPRINTF出力が
+ * 無効化されるため。x86_64 Linuxテストビルドでは stdio を使用する。 */
+
 
 #define NO_FILESYSTEM
 #define NO_WRITEV
